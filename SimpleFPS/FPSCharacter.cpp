@@ -29,8 +29,11 @@ AFPSCharacter::AFPSCharacter() {
 	bToDash = false;
 	fDashAmount = 10000.f;
 	fDashDuration = 0.5f;
-	fDashDistance = 1000.0f;
-	fDashSpeed = 10.0f;
+	fDashDistance = 800.0f;
+	fDashSpeed = 8.0f;
+	fDashHitSafeClipAmount = 0.05f;
+
+	
 }
 
 // Called when the game starts or when spawned
@@ -90,61 +93,14 @@ void AFPSCharacter::Shoot() {
 
 void AFPSCharacter::Jump() {
 	// GetCharacterMovement()->DoJump(true);
-	ACharacter::Jump();
+	// ACharacter::Jump();
+	// Super::Jump();
+	
 }
 
 void AFPSCharacter::Dash() {
-	//impluse method
-	//
-	// // turn off friction and gravity and turn down air control
-	// GetCharacterMovement()->GravityScale = 0.f;
-	// GetCharacterMovement()->GroundFriction = 0.f;
-	// GetCharacterMovement()->AirControl = 0.f;
-	// // GetCharacterMovement()->AirControlBoostMultiplier = 0.f;
-	// // GetCharacterMovement()->AirControlBoostVelocityThreshold = 0.f;
-	// GetCharacterMovement()->BrakingFriction = 0.f;
-	// GetCharacterMovement()->BrakingFrictionFactor = 0.f;
-	// // GetCharacterMovement()->BrakingDecelerationWalking = -1239.f;
-	// // GetCharacterMovement()->BrakingDecelerationFalling = -1239.f;
-	// // GetCharacterMovement()->Braking
-	// GetMesh()->SetLinearDamping(0.f);
-	//
-	// auto dashForce = fDashAmount * GetActorForwardVector();
-	//
-	// // GetCharacterMovement()->AddImpulse(dashForce);
-	// // GetCharacterMovement()->Launch(dashForce);
-	//
-	// FString toPrint = "Dash: " + dashForce.ToString();
-	// GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, (TEXT("%s"), toPrint));
-	//
-	// // start dash with a bool
-	// // calculate direction
-	// dashDirection = GetActorForwardVector();
-	// will call EndDash(), after the dash periods
-
 	// will allow calling Dashing()
 	bToDash = true;
-	// GetWorldTimerManager().SetTimer(dashTimerHandle, this, &AFPSCharacter::EndDash, fDashDuration, false);
-
-	// calculate direction
-	// using forward vector
-	// dashDirection = GetActorForwardVector();
-	// using player input keys as well as forward vector
-
-	/* // DUmb Way
-	if (PlayerInput.Equals(FVector2D(0.0f, 0.0f)) || PlayerInput.Y == 1.0f) {
-		dashDirection = GetActorForwardVector();
-	}
-	else if (PlayerInput.Equals(FVector2D(1.0f, 0.0f))) {
-		dashDirection = GetActorRightVector();
-	}
-	else if (PlayerInput.Equals(FVector2D(-1.0f, 0.0f))) {
-		dashDirection = -GetActorRightVector();
-	}
-	else if (PlayerInput.Y == -1.0f) {
-		dashDirection = -GetActorForwardVector();
-	}
-	*/
 
 	if (PlayerInput.Equals(FVector2D(0.0f, 0.0f))) {
 		dashDirection = GetActorForwardVector();
@@ -159,6 +115,7 @@ void AFPSCharacter::Dash() {
 
 	vDashStartDestination = GetActorLocation();
 	vDashFinalDestination = (dashDirection * fDashDistance) + GetActorLocation();
+	vDashWishFinalDestination = vDashFinalDestination;
 	fDashLerpAlpha = 0.f;
 
 
@@ -176,11 +133,17 @@ void AFPSCharacter::Dash() {
 	// check if something got hit in the sweep
 	bool isHit = GetWorld()->SweepMultiByChannel(OutHits, SweepStart, SweepEnd, FQuat::Identity, ECC_WorldStatic, colCapsule);
 	// float dashReduction;
+	fDashReductionRatio = 1.f;
 	FString toPrint = "Hit Objects: ";
 	for (auto hit : OutHits) {
 		toPrint += "\n" + hit.Actor->GetName();
 		if (!hit.Actor->GetName().Equals(GetName())) {
-			// dashReduction = (vDashFinalDestination - hit.Location).Size();
+			float reductionLength = (vDashFinalDestination - hit.Location).Size();
+			fDashReductionRatio = reductionLength / fDashDistance;
+			// calculate the ratio by which the distance is being reduced
+			// reduce it by default .05f (might change) to prevent clipping
+			fDashReductionRatio = 1.0f - fDashHitSafeClipAmount - fDashReductionRatio; 
+
 			vDashFinalDestination = hit.Location;
 			break;
 		}
@@ -189,34 +152,23 @@ void AFPSCharacter::Dash() {
 
 	// draw collision capsule
 	// DrawDebugSphere(GetWorld(), GetActorLocation(), colCapsule.GetSphereRadius(), 50, FColor::Purple, true);
-	DrawDebugCapsule(GetWorld(), vDashStartDestination, colCapsule.GetCapsuleHalfHeight(), colCapsule.GetCapsuleRadius(), GetMesh()->GetComponentRotation().Quaternion(), FColor::Blue, true);
-	DrawDebugCapsule(GetWorld(), vDashFinalDestination, colCapsule.GetCapsuleHalfHeight(), colCapsule.GetCapsuleRadius(), GetMesh()->GetComponentRotation().Quaternion(), FColor::Blue, true);
+	// DrawDebugCapsule(GetWorld(), vDashStartDestination, colCapsule.GetCapsuleHalfHeight(), colCapsule.GetCapsuleRadius(), GetMesh()->GetComponentRotation().Quaternion(), FColor::Blue, true);
+	// DrawDebugCapsule(GetWorld(), vDashFinalDestination, colCapsule.GetCapsuleHalfHeight(), colCapsule.GetCapsuleRadius(), GetMesh()->GetComponentRotation().Quaternion(), FColor::Blue, true);
 	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, (TEXT("%s"), toPrint));
 	// auto dsasdsd = FMath::Lerp(GetActorLocation(), finalDestination);
 }
 
 void AFPSCharacter::Dashing(float DeltaTime) {
-	// float dashAmount_dt = fDashAmount * DeltaTime;
-	// FVector dashMovementForce = dashDirection * dashAmount_dt;
-	// FString toPrint = "Dash: " + dashMovementForce.ToString();
-	// GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Blue, (TEXT("%s"), toPrint));
-	// //
-	// // const FRotator rotation = Controller->GetControlRotation();
-	// // const FRotator yawRotation(0, rotation.Yaw, 0);
-	// // // Get forward vector
-	// // const FVector direction = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::X);
-	//
-	// AddMovementInput(dashDirection, dashAmount_dt * 100 );
-	// // AddMovementInput(direction, dashAmount_dt*100);
 
 	fDashLerpAlpha += fDashSpeed * DeltaTime; // to make it constant
 
-	FVector lerpedLocation = FMath::Lerp(vDashStartDestination, vDashFinalDestination, fDashLerpAlpha);
+	// FVector lerpedLocation = FMath::Lerp(vDashStartDestination, vDashFinalDestination, fDashLerpAlpha);
+	FVector lerpedLocation = FMath::Lerp(vDashStartDestination, vDashWishFinalDestination, fDashLerpAlpha);
 
 	SetActorLocation(lerpedLocation);
 	// FString toPrint = "Dash: " + vDashStartDestination.ToString() + "  " + vDashFinalDestination.ToString() + "    " + lerpedLocation.ToString() + "   " + FString::SanitizeFloat(fDashLerpAlpha);
 	// GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Blue, (TEXT("%s"), toPrint));
-	if (fDashLerpAlpha >= 1.0f) {
+	if (fDashLerpAlpha >= fDashReductionRatio) {
 		EndDash();
 	}
 
@@ -227,14 +179,6 @@ void AFPSCharacter::EndDash() {
 	// just makes it so that Dashing is no longer called
 	bToDash = false;
 
-	// reset friction and gravity
-	// GetCharacterMovement()->GravityScale = fGravityScale;
-	// GetCharacterMovement()->GroundFriction = fNormalGroundFriction;
-	// GetCharacterMovement()->BrakingFriction = 2.0f;
-	// GetCharacterMovement()->BrakingFrictionFactor = 2.0f;
-	// GetMesh()->SetLinearDamping(0.1f);
-
-	// GetCharacterMovement()->SetMovementMode(MOVE_Walkng);
 }
 
 

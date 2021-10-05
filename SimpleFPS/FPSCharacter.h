@@ -46,10 +46,13 @@ private:
 	float fDashDistance;
 	float fDashSpeed;
 	float fDashLerpAlpha;
+	float fDashReductionRatio;
+	float fDashHitSafeClipAmount; // reduce the dash distance by this value if there is an obstacle in the way to prevent clipping
 
 	
-	FVector vDashFinalDestination;
 	FVector vDashStartDestination;
+	FVector vDashFinalDestination;
+	FVector vDashWishFinalDestination;
 	FVector dashDirection;
 	FTimerHandle dashTimerHandle;
 
