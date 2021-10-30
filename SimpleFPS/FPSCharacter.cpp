@@ -29,11 +29,11 @@ AFPSCharacter::AFPSCharacter() {
 	bToDash = false;
 	fDashAmount = 10000.f;
 	fDashDuration = 0.5f;
-	fDashDistance = 800.0f;
+	fDashDistance = 500.0f;
 	fDashSpeed = 8.0f;
 	fDashHitSafeClipAmount = 0.05f;
 
-
+	JumpMaxCount = 2;
 }
 
 // Called when the game starts or when spawned
@@ -160,13 +160,13 @@ void AFPSCharacter::Dash() {
 	else {
 
 		// reset the incline if it is going left or back on inclines.
-		if(PlayerInput.Y < 0 && isForwardInclined) {
+		if (PlayerInput.Y < 0 && isForwardInclined) {
 			dashForward = GetActorForwardVector();
 		}
-		if(PlayerInput.X < 0 && isRightInclined) {
+		if (PlayerInput.X < 0 && isRightInclined) {
 			dashRight = GetActorRightVector();
 		}
-		
+
 		dashDirection = dashForward * PlayerInput.Y + dashRight * PlayerInput.X;
 		dashDirection.Normalize();
 	}
@@ -236,7 +236,6 @@ void AFPSCharacter::Dashing(float DeltaTime) {
 void AFPSCharacter::EndDash() {
 	// just makes it so that Dashing is no longer called
 	bToDash = false;
-
 }
 
 
@@ -247,8 +246,10 @@ void AFPSCharacter::Tick(float DeltaTime) {
 	if (bToDash) {
 		Dashing(DeltaTime);
 	}
-	FString toPrint = "Player Input: " + PlayerInput.ToString();
-	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Green, (TEXT("%s"), toPrint));
+
+	// FString toPrint = "Jump Max: " + FString::FromInt(JumpMaxCount) + "\n";
+	// toPrint += "Jump Count: " + FString::FromInt(JumpCurrentCount) + "\n";
+	// GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Green, (TEXT("%s"), toPrint));
 }
 
 // Called to bind functionality to input
