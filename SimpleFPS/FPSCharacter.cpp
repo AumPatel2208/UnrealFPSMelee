@@ -33,7 +33,7 @@ AFPSCharacter::AFPSCharacter() {
 	fDashSpeed = 8.0f;
 	fDashHitSafeClipAmount = 0.05f;
 
-	
+
 }
 
 // Called when the game starts or when spawned
@@ -94,22 +94,80 @@ void AFPSCharacter::Shoot() {
 void AFPSCharacter::Jump() {
 	// GetCharacterMovement()->DoJump(true);
 	// ACharacter::Jump();
-	// Super::Jump();
-	
+	Super::Jump();
+
 }
 
 void AFPSCharacter::Dash() {
 	// will allow calling Dashing()
 	bToDash = true;
 
+	FHitResult OutHitPlayerFloor;
+	FVector SweepStart = GetActorLocation();
+	FVector SweepEnd = GetActorLocation() + (-GetActorLocation().UpVector * 100.f);
+	FCollisionQueryParams CollisionParameters;
+	CollisionParameters.AddIgnoredActor(this);
+	bool isFloorCollision = GetWorld()->LineTraceSingleByChannel(OutHitPlayerFloor, SweepStart, SweepEnd, ECC_WorldStatic, CollisionParameters);
+	FString toPrint;
+
+	FVector dashForward = GetActorForwardVector();
+	FVector dashRight = GetActorRightVector();
+
+	bool isForwardInclined = false;
+	bool isRightInclined = false;
+	if (isFloorCollision) {
+		// Getting perpendicular maths : https://answers.unity.com/questions/1662376/how-to-calculate-the-3d-vector-perpendicular-to-a.html
+
+		// Draw Surface Normal
+		// DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + OutHitPlayerFloor.Normal * 100.f, FColor::Blue, true, 100, 0, 5);
+
+		// Cross product of player-right & surface-normal will be surface-forward vector
+		FVector surfaceForward = FVector::CrossProduct(GetActorRightVector(), OutHitPlayerFloor.Normal);
+
+		//Draw Surface Forward
+		// DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + surfaceForward * 100.f, FColor::Red, true, 100, 0, 5);
+
+		// check if the slope is inclined
+		// dont apply surface forward if on a decline
+		FVector inclinedFuturePos = GetActorLocation() + surfaceForward * 10.f;
+		// check whether the surface is on an incline, and only then change the forward
+		if (inclinedFuturePos.Z > GetActorLocation().Z) {
+			isForwardInclined = true;
+			dashForward = surfaceForward;
+		}
+
+		// Cross product of surface-forward & surface-normal will give surface-right vector
+		FVector surfaceRight = FVector::CrossProduct(OutHitPlayerFloor.Normal, surfaceForward);
+
+		// Draw Surface Right
+		// DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + surfaceRight * 100.f, FColor::Green, true, 100, 0, 5);
+
+		inclinedFuturePos = GetActorLocation() + surfaceRight * 10.f;
+
+		// check whether the surface is on an incline, and only then change the right
+		if (inclinedFuturePos.Z > GetActorLocation().Z) {
+			isRightInclined = true;
+			dashRight = surfaceRight;
+		}
+
+
+	}
+
 	if (PlayerInput.Equals(FVector2D(0.0f, 0.0f))) {
-		dashDirection = GetActorForwardVector();
+		// dashDirection = GetActorForwardVector();
+		dashDirection = dashForward;
 	}
 	else {
-		FVector forward = GetActorForwardVector();
-		FVector right = GetActorRightVector();
 
-		dashDirection = forward * PlayerInput.Y + right * PlayerInput.X;
+		// reset the incline if it is going left or back on inclines.
+		if(PlayerInput.Y < 0 && isForwardInclined) {
+			dashForward = GetActorForwardVector();
+		}
+		if(PlayerInput.X < 0 && isRightInclined) {
+			dashRight = GetActorRightVector();
+		}
+		
+		dashDirection = dashForward * PlayerInput.Y + dashRight * PlayerInput.X;
 		dashDirection.Normalize();
 	}
 
@@ -120,29 +178,29 @@ void AFPSCharacter::Dash() {
 
 
 	// collision pre-check
-	// create a collision sphere
+	// create a collision sphere to use for the check
 	FCollisionShape colCapsule = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetScaledCapsuleRadius(), GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
 
 	// create array for hit results
-	TArray<FHitResult> OutHits;
+	TArray<FHitResult> OutHitsDash;
 
 	// start and end locations
-	FVector SweepStart = vDashStartDestination;
-	FVector SweepEnd = vDashFinalDestination;
+	SweepStart = vDashStartDestination;
+	SweepEnd = vDashFinalDestination;
 
 	// check if something got hit in the sweep
-	bool isHit = GetWorld()->SweepMultiByChannel(OutHits, SweepStart, SweepEnd, FQuat::Identity, ECC_WorldStatic, colCapsule);
+	bool isHit = GetWorld()->SweepMultiByChannel(OutHitsDash, SweepStart, SweepEnd, FQuat::Identity, ECC_WorldStatic, colCapsule);
 	// float dashReduction;
 	fDashReductionRatio = 1.f;
-	FString toPrint = "Hit Objects: ";
-	for (auto hit : OutHits) {
-		toPrint += "\n" + hit.Actor->GetName();
+	for (auto hit : OutHitsDash) {
+		// toPrint += "\n" + hit.Actor->GetName();
 		if (!hit.Actor->GetName().Equals(GetName())) {
+
 			float reductionLength = (vDashFinalDestination - hit.Location).Size();
 			fDashReductionRatio = reductionLength / fDashDistance;
 			// calculate the ratio by which the distance is being reduced
 			// reduce it by default .05f (might change) to prevent clipping
-			fDashReductionRatio = 1.0f - fDashHitSafeClipAmount - fDashReductionRatio; 
+			fDashReductionRatio = 1.0f - fDashHitSafeClipAmount - fDashReductionRatio;
 
 			vDashFinalDestination = hit.Location;
 			break;
