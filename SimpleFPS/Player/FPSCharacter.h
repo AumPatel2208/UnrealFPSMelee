@@ -17,46 +17,40 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	// movement
+	
+	// Movement
 	void MoveForward(float amount);
 	void MoveRight(float amount);
 	void Turn(float amount);
 	void LookUp(float amount);
+	// Actions
 	void Shoot();
 	void Jump();
 	void Dash();
-	UFUNCTION() // to allow the function to be be bound on a timer
+	
+	// UFUNCTION() // to allow the function to be be bound on a timer
 	void Dashing(float DeltaTime);
 	void EndDash();
-	
+
 private:
-	bool invertCamera = false;
-	float mouseSens = 1.0f;
+	// Camera
+	bool  invertCamera = false;
+	float mouseSens    = 1.0f;
 
-	// character atributes
-	float fGravityScale = 1.5f;
-	float fNormalGroundFriction = 8.0f;
+	// Character atributes
+	float gravityScale         = 1.8f;
+	float normalGroundFriction = 8.0f;
 
-	FVector2D PlayerInput = FVector2D(0,0);
-	
-	// dashing
-	float fDashAmount;
-	bool bToDash;
-	float fDashDuration;
-	float fDashDistance;
-	float fDashSpeed;
-	float fDashLerpAlpha;
-	float fDashReductionRatio;
-	float fDashHitSafeClipAmount; // reduce the dash distance by this value if there is an obstacle in the way to prevent clipping
+	// Input
+	FVector2D playerInput = FVector2D(0, 0);
 
-	
-	FVector vDashStartDestination;
-	FVector vDashFinalDestination;
-	FVector vDashWishFinalDestination;
-	FVector dashDirection;
-	FTimerHandle dashTimerHandle;
+
+
 
 public:
+	UPROPERTY(EditAnywhere, Category = "Components") // Macro to tell unreal where this can be edited from and stuff
+	class UDash* dashComponent;
+	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
