@@ -6,9 +6,9 @@
 #include "CollisionQueryParams.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
-#include "GameFramework/Actor.h"
 #include "Engine/World.h"
-#include "Utility/BoisMaths.h"
+#include "GameFramework/Actor.h"
+#include "SimpleFPS/Utility/BoisMaths.h"
 
 // Sets default values for this component's properties
 UDash::UDash() {
@@ -16,7 +16,7 @@ UDash::UDash() {
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
 
-	
+
 	// dash
 	bToDash    = false;
 	dashAmount = 10000.f;
@@ -32,7 +32,7 @@ void UDash::BeginPlay() {
 	Super::BeginPlay();
 
 	// ...
-	
+
 }
 
 
@@ -40,16 +40,16 @@ void UDash::BeginPlay() {
 void UDash::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if(bToDash) {
+	if (bToDash) {
 		Dashing(DeltaTime);
 	}
 
-	
+
 	// ...
 }
 
 void UDash::DashBegin(const FVector2D& input) {
-		// will allow calling Dashing()
+	// will allow calling Dashing()
 
 	bToDash = true;
 
@@ -69,7 +69,7 @@ void UDash::DashBegin(const FVector2D& input) {
 	FCollisionQueryParams CollisionParameters;
 	CollisionParameters.AddIgnoredActor(GetOwner());
 	bool    isFloorCollision = GetWorld()->LineTraceSingleByChannel(OutHitPlayerFloor, SweepStart, SweepEnd, ECC_WorldStatic, CollisionParameters);
-	FString toPrint;
+	// FString toPrint;
 
 	FVector dashForward = GetOwner()->GetActorForwardVector();
 	FVector dashRight   = GetOwner()->GetActorRightVector();
@@ -80,13 +80,15 @@ void UDash::DashBegin(const FVector2D& input) {
 		// Getting perpendicular maths : https://answers.unity.com/questions/1662376/how-to-calculate-the-3d-vector-perpendicular-to-a.html
 
 		// Draw Surface Normal
-		DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + OutHitPlayerFloor.Normal * 100.f, FColor::Blue, true, 100, 0, 5);
+		if (bShowDebugSurfaceNormalLines)
+			DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + OutHitPlayerFloor.Normal * 100.f, FColor::Blue, true, 100, 0, 5);
 
 		// Cross product of player-right & surface-normal will be surface-forward vector
 		FVector surfaceForward = FVector::CrossProduct(GetOwner()->GetActorRightVector(), OutHitPlayerFloor.Normal);
 
 		//Draw Surface Forward
-		DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + surfaceForward * 100.f, FColor::Red, true, 100, 0, 5);
+		if (bShowDebugSurfaceNormalLines)
+			DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + surfaceForward * 100.f, FColor::Red, true, 100, 0, 5);
 
 		// check if the slope is inclined
 		// dont apply surface forward if on a decline
@@ -101,7 +103,8 @@ void UDash::DashBegin(const FVector2D& input) {
 		FVector surfaceRight = FVector::CrossProduct(OutHitPlayerFloor.Normal, surfaceForward);
 
 		// Draw Surface Right
-		DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + surfaceRight * 100.f, FColor::Green, true, 100, 0, 5);
+		if (bShowDebugSurfaceNormalLines)
+			DrawDebugLine(GetWorld(), OutHitPlayerFloor.Location, OutHitPlayerFloor.Location + surfaceRight * 100.f, FColor::Green, true, 100, 0, 5);
 
 		inclinedFuturePos = GetOwner()->GetActorLocation() + surfaceRight * 10.f;
 
@@ -154,33 +157,32 @@ void UDash::DashBegin(const FVector2D& input) {
 	// float dashReduction;
 	dashReductionRatio = 1.f;
 	for (auto hit : OutHitsDash) {
-		toPrint += "\n" + hit.Actor->GetName();
-		if (!hit.Actor->GetName().Equals(GetOwner()->GetName())) {
-			
+		// toPrint += "\n" + hit.GetActor()->GetName();
+		if (!hit.GetActor()->GetName().Equals(GetOwner()->GetName())) {
+
 			// don't dash if the object is too close
 			if (FVector::Distance(hit.Location, dashStartDestination) <= dashHitSafeClipAmount) {
 				bToDash = false; // 
-				break; // exit
+				break;           // exit
 			}
-			
+
 			float reductionLength = (dashFinalDestination - hit.Location).Size();
 			dashReductionRatio    = reductionLength / dashDistance;
 			dashReductionRatio    = 1.0f - dashReductionRatio;
 
 			dashFinalDestination = hit.Location;
 
-		
+
 			break; // exit as no need checking other collisions.
 		}
 
 	}
 
 	// draw collision capsule
-	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Blue, (TEXT("%s"), "bvasda"));
-
-	DrawDebugCapsule(GetWorld(), dashStartDestination, capsuleHalfHeight, capsuleRadius, FQuat::Identity, FColor::Blue, true);
-	DrawDebugCapsule(GetWorld(), dashFinalDestination, capsuleHalfHeight, capsuleRadius,  FQuat::Identity, FColor::Blue, true);
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, (TEXT("%s"), toPrint));
+	if (bShowDebugCapsule) {
+		DrawDebugCapsule(GetWorld(), dashStartDestination, capsuleHalfHeight, capsuleRadius, FQuat::Identity, FColor::Blue, true);
+		DrawDebugCapsule(GetWorld(), dashFinalDestination, capsuleHalfHeight, capsuleRadius, FQuat::Identity, FColor::Blue, true);
+	}
 	// auto dsasdsd = FMath::Lerp(actor.GetActorLocation(), finalDestination);
 }
 
@@ -212,4 +214,3 @@ void UDash::SetCapsuleHalfHeight(float halfHeight) {
 void UDash::SetCapsuleRadius(float radius) {
 	capsuleRadius = radius;
 }
-

@@ -49,5 +49,13 @@ private:
 
 	// capsule height and radius for capsule-raycast check
 	float capsuleHalfHeight, capsuleRadius;
+
+public:
+	// Debug
+	UPROPERTY(EditAnywhere)
+	bool bShowDebugCapsule;
+
+	UPROPERTY(EditAnywhere)
+	bool bShowDebugSurfaceNormalLines;
 	
 };

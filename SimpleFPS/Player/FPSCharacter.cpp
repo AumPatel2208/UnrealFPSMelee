@@ -8,7 +8,8 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "../Utility/BoisMaths.h"
-#include "SimpleFPS/Dash.h"
+#include "SimpleFPS/Movement/Dash.h"
+#include "SimpleFPS/Stats/Health.h"
 
 
 // Sets default values
@@ -30,7 +31,8 @@ AFPSCharacter::AFPSCharacter() {
 	mouseSens *= invInt;
 
 	// dash
-	dashComponent = CreateDefaultSubobject<UDash>(TEXT("Dash Componenet"));
+	dashComponent   = CreateDefaultSubobject<UDash>(TEXT("Dash Componenet"));
+	healthComponent = CreateDefaultSubobject<UHealth>(TEXT("Health Componenet"));
 
 
 }
@@ -41,11 +43,14 @@ void AFPSCharacter::BeginPlay() {
 
 	dashComponent->SetCapsuleRadius(GetCapsuleComponent()->GetScaledCapsuleRadius());
 	dashComponent->SetCapsuleHalfHeight(GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
-	
+
 }
 
+#pragma region Movmement
+// Movement controls
+
+// Forward Backwards movement
 void AFPSCharacter::MoveForward(float amount) {
-	// if ((Controller != nullptr) && (amount != 0.0f)) {
 	// Find out which way is forward
 	const FRotator rotation = Controller->GetControlRotation();
 	const FRotator yawRotation(0, rotation.Yaw, 0);
@@ -56,9 +61,9 @@ void AFPSCharacter::MoveForward(float amount) {
 	// Get forward vector
 	const FVector direction = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::X);
 	AddMovementInput(direction, amount);
-	// }
 }
 
+// Right Left movement
 void AFPSCharacter::MoveRight(float amount) {
 	// Find out which way is forward
 	const FRotator rotation = Controller->GetControlRotation();
@@ -74,6 +79,7 @@ void AFPSCharacter::MoveRight(float amount) {
 	AddMovementInput(direction, amount);
 }
 
+// Turning the player
 void AFPSCharacter::Turn(float amount) {
 	if (amount != 0.f && Controller && Controller->IsLocalPlayerController()) {
 		APlayerController* const playerController = CastChecked<APlayerController>(Controller);
@@ -89,62 +95,35 @@ void AFPSCharacter::LookUp(float amount) {
 	}
 }
 
+void AFPSCharacter::Jump() {
+	Super::Jump();
+}
+
+void AFPSCharacter::Dash() {
+	dashComponent->DashBegin(playerInput);
+}
+#pragma endregion Movement
+
 
 void AFPSCharacter::Shoot() {
 }
 
-void AFPSCharacter::Jump() {
-	// GetCharacterMovement()->DoJump(true);
-	// ACharacter::Jump();
-	Super::Jump();
 
+
+
+void AFPSCharacter::DisplayHealth() const {
+	FString healthToPrint = "";
+
+	healthToPrint += FString::SanitizeFloat(healthComponent->GetHealth());
+
+	GEngine->AddOnScreenDebugMessage(-1, 0.001f, FColor::Red, (TEXT("%s"), healthToPrint));
 }
-
-void AFPSCharacter::Dash() {
-	// GEngine->AddOnScreenDebugMessage();
-
-	dashComponent->DashBegin(playerInput);
-}
-
-
-// // called during the dash
-// void AFPSCharacter::Dashing(float DeltaTime) {
-//
-// 	dashLerpAlpha += dashSpeed * DeltaTime; // to make it constant
-//
-// 	// FVector lerpedLocation = FMath::Lerp(vDashStartDestination, vDashWishFinalDestination, fDashLerpAlpha);
-// 	FVector lerpedLocation = BoisMaths::Slerp(dashStartDestination, dashWishFinalDestination, dashLerpAlpha);
-// 	SetActorLocation(lerpedLocation);
-// 	// FString toPrint = "Dash: " + vDashStartDestination.ToString() + "  " + vDashFinalDestination.ToString() + "    " + lerpedLocation.ToString() + "   " + FString::SanitizeFloat(fDashLerpAlpha);
-// 	// GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Blue, (TEXT("%s"), toPrint));
-// 	if (dashLerpAlpha >= dashReductionRatio) {
-// 		EndDash();
-// 	}
-//
-//
-// }
-
-// // Called when dash ends
-// void AFPSCharacter::EndDash() {
-// 	// just makes it so that Dashing is no longer called
-// 	bToDash = false;
-//
-// 	// to get out of clipped states just move the character at the end of the dash
-// 	MoveForward(1.0f); // HACK might be a little hacky, but shouldn't presents issues
-// }
-
 
 // Called every frame
 void AFPSCharacter::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	// if (bToDash) {
-	// 	Dashing(DeltaTime);
-	// }
-
-	// FString toPrint = "Jump Max: " + FString::FromInt(JumpMaxCount) + "\n";
-	// toPrint += "Jump Count: " + FString::FromInt(JumpCurrentCount) + "\n";
-	// GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Green, (TEXT("%s"), toPrint));
+	DisplayHealth();
 }
 
 // Called to bind functionality to input

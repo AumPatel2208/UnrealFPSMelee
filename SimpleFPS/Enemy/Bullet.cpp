@@ -4,6 +4,7 @@
 #include "Bullet.h"
 
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "SimpleFPS/Stats/Health.h"
 
 // Sets default values
 ABullet::ABullet() {
@@ -35,5 +36,9 @@ void ABullet::Tick(float DeltaTime) {
 }
 
 void ABullet::OnBulletHit(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit) {
+	UHealth * actorHealth = OtherActor->FindComponentByClass<UHealth>();
+	if(actorHealth) // if not null
+		actorHealth->Damage(damageValue);
+	
 	Destroy();
 }

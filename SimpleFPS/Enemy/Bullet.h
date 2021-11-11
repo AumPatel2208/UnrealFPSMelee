@@ -15,6 +15,9 @@ public:
 	// Sets default values for this actor's properties
 	ABullet();
 
+	UPROPERTY(EditAnywhere)
+	float damageValue = 10.0f;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

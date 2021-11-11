@@ -32,6 +32,8 @@ protected:
 	void Dashing(float DeltaTime);
 	void EndDash();
 
+	void DisplayHealth() const;
+
 private:
 	// Camera
 	bool  invertCamera = false;
@@ -46,15 +48,17 @@ private:
 
 
 
-
 public:
 	UPROPERTY(EditAnywhere, Category = "Components") // Macro to tell unreal where this can be edited from and stuff
 	class UDash* dashComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Components") // Macro to tell unreal where this can be edited from and stuff
+	class UHealth* healthComponent;
 	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
+	
 };
