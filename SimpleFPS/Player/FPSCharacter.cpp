@@ -100,6 +100,7 @@ void AFPSCharacter::Jump() {
 }
 
 void AFPSCharacter::Dash() {
+	
 	dashComponent->DashBegin(playerInput);
 }
 #pragma endregion Movement
@@ -111,19 +112,25 @@ void AFPSCharacter::Shoot() {
 
 
 
-void AFPSCharacter::DisplayHealth() const {
-	FString healthToPrint = "";
+void AFPSCharacter::DisplayTempHud() const {
+	FString healthToPrint = "HP  : ";
 
 	healthToPrint += FString::SanitizeFloat(healthComponent->GetHealth());
-
 	GEngine->AddOnScreenDebugMessage(-1, 0.001f, FColor::Red, (TEXT("%s"), healthToPrint));
+
+	FString dashToPrint = "Dash: ";
+	dashToPrint += FString::FromInt(dashComponent->GetMaxDashCount() - dashComponent->GetDashCount());
+	dashToPrint += "\ntime: ";
+	dashToPrint += FString::SanitizeFloat(dashComponent->GetRunningDashCooldownTimer());
+	GEngine->AddOnScreenDebugMessage(-1, 0.001f, FColor::Green, (TEXT("%s"), dashToPrint));
+
 }
 
 // Called every frame
 void AFPSCharacter::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	DisplayHealth();
+	DisplayTempHud();
 }
 
 // Called to bind functionality to input

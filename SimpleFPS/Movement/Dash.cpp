@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "SimpleFPS/Utility/BoisMaths.h"
 
 // Sets default values for this component's properties
@@ -18,12 +19,14 @@ UDash::UDash() {
 
 
 	// dash
-	bToDash    = false;
-	dashAmount = 10000.f;
-	// dashDuration          = 0.5f;
-	dashDistance          = 500.0f;
-	dashSpeed             = 8.0f;
-	dashHitSafeClipAmount = 0.65f;
+	bToDash           = false;
+	maxDashForce      = 3000000.f;
+	minDashForce      = 10000.f;
+	remenantDashForce = 300.f;
+	dashDuration      = 0.15f;
+	maxDashCount      = 2;
+	// dashCooldownDuration = 0.0f;
+
 }
 
 
@@ -44,23 +47,55 @@ void UDash::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentT
 		Dashing(DeltaTime);
 	}
 
+	if (dashTimer > 0.0f) {
+		dashTimer -= DeltaTime;
+		if (dashTimer <= 0.0f) {
+			DashEnd();
+		}
+	}
 
-	// ...
+	if (!dashCoolDownTimers.IsEmpty()) {
+		DashCooldown(DeltaTime);
+	}
+
 }
 
+void UDash::DashCooldown(float DeltaTime) {
+	float& timer = *dashCoolDownTimers.Peek();
+	timer -= DeltaTime;
+	if (timer <= 0.0f) {
+		dashCount -= 1;           // allow another dash
+		dashCoolDownTimers.Pop(); // remove the timer from the queue
+	}
+}
+
+
 void UDash::DashBegin(const FVector2D& input) {
-	// will allow calling Dashing()
+
+	// don't perform if already dashing
+	if (dashTimer > 0.0f) {
+		return;
+	}
+	if (dashCount + 1 > maxDashCount) {
+		return;
+	}
+	else {
+		dashCount += 1;
+	}
+
+	dashTimer = dashDuration;
+	//
+	UCharacterMovementComponent* movement  = GetOwner()->FindComponentByClass<UCharacterMovementComponent>();
+	movementDefaults.BrakingFrictionFactor = movement->BrakingFrictionFactor;
+	movementDefaults.GravityScale          = movement->GravityScale;
+	movementDefaults.Velocity              = movement->Velocity;
+
+	movement->BrakingFrictionFactor = 0.0f;
+	movement->GravityScale          = 0.0f;
+
 
 	bToDash = true;
 
-
-	/* TODO: Dash
-	 * Clipping has been fixed by not dashing if a certain distance away.
-	 * The way the current dashing works may introduce isses when dashing into enemies,
-	 * 		- The Dash Collision check is calculated when shift is pressed, so within the duration from Button down to dash end, any new collision will not be checked
-	 * 			- Solution: Real-time collision checking rather than at the beginning
-	 * 		- Dash effect on collision with enemies will need to be calculated.
-	*/
 
 	FHitResult OutHitPlayerFloor;
 	FVector    SweepStart = GetOwner()->GetActorLocation();
@@ -68,7 +103,7 @@ void UDash::DashBegin(const FVector2D& input) {
 
 	FCollisionQueryParams CollisionParameters;
 	CollisionParameters.AddIgnoredActor(GetOwner());
-	bool    isFloorCollision = GetWorld()->LineTraceSingleByChannel(OutHitPlayerFloor, SweepStart, SweepEnd, ECC_WorldStatic, CollisionParameters);
+	bool isFloorCollision = GetWorld()->LineTraceSingleByChannel(OutHitPlayerFloor, SweepStart, SweepEnd, ECC_WorldStatic, CollisionParameters);
 	// FString toPrint;
 
 	FVector dashForward = GetOwner()->GetActorForwardVector();
@@ -135,76 +170,53 @@ void UDash::DashBegin(const FVector2D& input) {
 		dashDirection.Normalize();
 	}
 
-	dashStartDestination     = GetOwner()->GetActorLocation();
-	dashFinalDestination     = (dashDirection * dashDistance) + GetOwner()->GetActorLocation();
-	dashWishFinalDestination = dashFinalDestination;
-	dashLerpAlpha            = 0.f;
-
-
-	// collision pre-check
-	// create a collision sphere to use for the check
-	FCollisionShape colCapsule = FCollisionShape::MakeCapsule(capsuleRadius, capsuleHalfHeight);
-
-	// create array for hit results
-	TArray<FHitResult> OutHitsDash;
-
-	// start and end locations
-	SweepStart = dashStartDestination;
-	SweepEnd   = dashFinalDestination;
-
-	// check if something got hit in the sweep
-	bool isHit = GetWorld()->SweepMultiByChannel(OutHitsDash, SweepStart, SweepEnd, FQuat::Identity, ECC_WorldStatic, colCapsule);
-	// float dashReduction;
-	dashReductionRatio = 1.f;
-	for (auto hit : OutHitsDash) {
-		// toPrint += "\n" + hit.GetActor()->GetName();
-		if (!hit.GetActor()->GetName().Equals(GetOwner()->GetName())) {
-
-			// don't dash if the object is too close
-			if (FVector::Distance(hit.Location, dashStartDestination) <= dashHitSafeClipAmount) {
-				bToDash = false; // 
-				break;           // exit
-			}
-
-			float reductionLength = (dashFinalDestination - hit.Location).Size();
-			dashReductionRatio    = reductionLength / dashDistance;
-			dashReductionRatio    = 1.0f - dashReductionRatio;
-
-			dashFinalDestination = hit.Location;
-
-
-			break; // exit as no need checking other collisions.
-		}
-
+	if (bShowDebugSurfaceNormalLines) {
+		auto location = OutHitPlayerFloor.Location + GetOwner()->GetActorUpVector() * capsuleHalfHeight;
+		DrawDebugLine(GetWorld(), location, location + dashDirection * 100.f, FColor::Green, true, 100, 0, 5);
 	}
-
-	// draw collision capsule
-	if (bShowDebugCapsule) {
-		DrawDebugCapsule(GetWorld(), dashStartDestination, capsuleHalfHeight, capsuleRadius, FQuat::Identity, FColor::Blue, true);
-		DrawDebugCapsule(GetWorld(), dashFinalDestination, capsuleHalfHeight, capsuleRadius, FQuat::Identity, FColor::Blue, true);
-	}
-	// auto dsasdsd = FMath::Lerp(actor.GetActorLocation(), finalDestination);
 }
 
 void UDash::Dashing(float DeltaTime) {
-	dashLerpAlpha += dashSpeed * DeltaTime; // to make it constant
+	float lerpAlpha;
+	// should go up then down
+	// if (dashTimer < dashDuration / 2) {
+	// 	lerpAlpha = dashTimer / (dashDuration / 2);
+	// }
+	// else {
+	// 	lerpAlpha = (dashTimer - dashDuration / 2) / (dashDuration / 2);
+	// }
 
-	// FVector lerpedLocation = FMath::Lerp(vDashStartDestination, vDashWishFinalDestination, fDashLerpAlpha);
-	FVector lerpedLocation = BoisMaths::Slerp(dashStartDestination, dashWishFinalDestination, dashLerpAlpha);
-	GetOwner()->SetActorLocation(lerpedLocation);
-	// FString toPrint = "Dash: " + vDashStartDestination.ToString() + "  " + vDashFinalDestination.ToString() + "    " + lerpedLocation.ToString() + "   " + FString::SanitizeFloat(fDashLerpAlpha);
-	// GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Blue, (TEXT("%s"), toPrint));
-	if (dashLerpAlpha >= dashReductionRatio) {
-		DashEnd();
-	}
+	// TODO: End Dash on a collision?
+
+	
+	lerpAlpha = dashTimer / dashDuration;
+
+	float lerpedForce = FMath::CubicInterp(minDashForce, 0.0f, maxDashForce, 0.0f, lerpAlpha);
+
+	// apply force
+	UCharacterMovementComponent* movement = GetOwner()->FindComponentByClass<UCharacterMovementComponent>();
+	movement->AddForce(dashDirection * lerpedForce);
+
+
+	// when timer reaches 0, call dash end
+
 }
 
 void UDash::DashEnd() {
+	UCharacterMovementComponent* movement = GetOwner()->FindComponentByClass<UCharacterMovementComponent>();
+
+	// resetting back to what it was.
+	movement->GravityScale          = movementDefaults.GravityScale;
+	movement->BrakingFrictionFactor = movementDefaults.BrakingFrictionFactor;
+	movement->Velocity              = movementDefaults.Velocity + dashDirection * remenantDashForce;
+
+
 	// just makes it so that Dashing is no longer called
 	bToDash = false;
 
-	// to get out of clipped states just move the character at the end of the dash
-	// GetOwner()->MoveForward(1.0f); // HACK might be a little hacky, but shouldn't presents issues
+
+	// send to dash cooldown
+	dashCoolDownTimers.Enqueue(dashCooldownDuration);
 }
 
 void UDash::SetCapsuleHalfHeight(float halfHeight) {
@@ -213,4 +225,18 @@ void UDash::SetCapsuleHalfHeight(float halfHeight) {
 
 void UDash::SetCapsuleRadius(float radius) {
 	capsuleRadius = radius;
+}
+
+int UDash::GetDashCount() {
+	return dashCount;
+}
+
+int UDash::GetMaxDashCount() {
+	return maxDashCount;
+}
+
+const float UDash::GetRunningDashCooldownTimer() {
+	if (!dashCoolDownTimers.IsEmpty())
+		return *dashCoolDownTimers.Peek();
+	return 0.0f;
 }

@@ -32,7 +32,7 @@ protected:
 	void Dashing(float DeltaTime);
 	void EndDash();
 
-	void DisplayHealth() const;
+	void DisplayTempHud() const;
 
 private:
 	// Camera
